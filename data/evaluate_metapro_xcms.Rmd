@@ -1,0 +1,157 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+
+Load XCMS library
+```{r}
+library(xcms)
+library(SummarizedExperiment)
+```
+
+
+Define functions
+```{r}
+load_mzml <- function(mzml_path) {
+  mzmls <- list.files(path = mzml_path, pattern = ".mzML",recursive = TRUE,full.names = TRUE)
+  pd <- data.frame(sample_name = sub(basename(mzmls), pattern = ".mzML", replacement = "", fixed = TRUE), stringsAsFactors = FALSE)
+  xdata <- readMSData(files = mzmls, pdata = new("NAnnotatedDataFrame",pd),mode = "onDisk")
+  return(xdata)
+}
+
+
+
+load_peak_ranges <- function(result_path) {
+  result_data <- read.table(result_path, header=FALSE, sep=",")
+  range_data <- result_data[, c(4:7)]
+  range_data[, 3] <- range_data[, 3] * 60
+  range_data[, 4] <- range_data[, 4] * 60
+  
+  anno_ranges <- c()
+  for (i in 1:nrow(range_data)) {
+    anno_ranges <- c(anno_ranges, c(t(range_data[i,])))
+  }
+  colnames = c("mzmin", "mzmax", "rtmin", "rtmax")
+  peak_ranges <- matrix(anno_ranges, nrow = nrow(result_data), byrow = TRUE, dimnames = list(NULL, colnames))
+  return(peak_ranges)
+}
+
+
+load_peak_data <- function(result_path) {
+  result_data <- read.table(result_path, header=FALSE, sep=",")
+  peak_data <- result_data[, c(1:3)]
+  peak_data[, 2] <- peak_data[, 2] * 60
+  return(peak_data)
+}
+
+
+extract_peaks <- function(xdata, result_path, samples) {
+  start_idx <- 0
+  for (i in 1:length(samples)) {
+    result_full_path <- paste0(result_path, samples[i], '.csv')
+    peak_ranges <- load_peak_ranges(result_full_path)
+    peak_data <- load_peak_data(result_full_path)
+    xdata <- manualChromPeaks(xdata, peak_ranges, i)
+    chromPeaks(xdata)[(start_idx + 1):(start_idx + nrow(peak_ranges)), c('mz', 'rt', 'into')] <- unlist(peak_data)
+    start_idx <- start_idx + nrow(peak_ranges)
+  }
+  return(xdata)
+}
+
+
+group_align <- function(xdata, bw, binsize) {
+  pdp <- PeakDensityParam(minFraction = 0.9, bw = 30, binSize = binsize, sampleGroups = c(1:length(fileNames(xdata))))
+  xdata <- groupChromPeaks(xdata, param = pdp)
+  pgp <- PeakGroupsParam(minFraction = 0.9)
+  xdata <- adjustRtime(xdata, param = pgp)
+  
+  pdp <- PeakDensityParam(minFraction = 0.5, bw = bw, binSize = binsize, sampleGroups = c(1:length(fileNames(xdata))))
+  grouped <- groupChromPeaks(xdata, param = pdp)
+  return(grouped)
+}
+
+
+obiwarp_align <- function(xdata, profStep, bw, binsize) {
+  
+  obi <- ObiwarpParam(binSize = profStep)
+  xdata <- adjustRtime(xdata,param = obi)
+  
+  pdp <- PeakDensityParam(minFraction = 0.5, bw = bw, binSize = binsize, sampleGroups = c(1:length(fileNames(xdata))))
+  grouped <- groupChromPeaks(xdata, param = pdp)
+}
+
+
+write_results <- function(grouped, csv_path) {
+  mzs <- assay(quantify(grouped, value="mz"))
+  rts <- assay(quantify(grouped, value="rt")) / 60
+  areas <- assay(quantify(grouped, value="into"))
+
+  result <- data.frame(mz = rowMedians(mzs, na.rm = TRUE), rt = rowMedians(rts, na.rm = TRUE), area = rowMedians(areas, na.rm = TRUE), need_assign = 0)
+  for (name in colnames(mzs)) {
+    result[paste0(name, '_mz')] <- mzs[, name]
+    result[paste0(name, '_rt')] <- rts[, name]
+    result[paste0(name, '_area')] <- areas[, name]
+  }
+  result[is.na(result)] <- 0
+  write.csv(result, csv_path, row.names = FALSE)
+}
+
+```
+
+
+
+
+Result paths
+```{r}
+
+wiff_result_path <- 'D:/workspace/GAligner/data/TripleTOF_6600/metapro/'
+raw_result_path <- 'D:/workspace/GAligner/data/QE_HF/metapro/'
+wiff_samples <- c('SampleA_1', 'SampleA_2', 'SampleA_3', 'SampleA_4', 'SampleB_1', 'SampleB_2', 'SampleB_3', 'SampleB_4')
+raw_samples <- c('SA1', 'SA2', 'SA3', 'SA4', 'SA5', 'SB1', 'SB2', 'SB3', 'SB4', 'SB5')
+```
+
+
+
+
+```{r}
+# TripleTOF_6600 group
+wiff_xdata <- load_mzml(mzml_path = "D:/workspace/GAligner/data/TripleTOF_6600/mzml")
+wiff_xdata <- extract_peaks(wiff_xdata, wiff_result_path, wiff_samples)
+wiff_grouped <- group_align(wiff_xdata, bw=10, binsize=0.02)
+write_results(wiff_grouped, "D:/workspace/GAligner/data/TripleTOF_6600_results_metapro/TripleTOF_6600_group_aligned_xcms.csv")
+```
+
+
+```{r}
+# TripleTOF_6600 obiwarp
+wiff_xdata <- load_mzml(mzml_path = "D:/workspace/GAligner/data/TripleTOF_6600/mzml")
+wiff_xdata <- extract_peaks(wiff_xdata, wiff_result_path, wiff_samples)
+wiff_grouped <- obiwarp_align(wiff_xdata, profStep = 1, bw = 10, binsize = 0.02)
+write_results(wiff_grouped, "D:/workspace/GAligner/data/TripleTOF_6600_results_metapro/TripleTOF_6600_obiwarp_aligned_xcms.csv")
+```
+
+
+```{r}
+# QE_HF group
+raw_xdata <- load_mzml(mzml_path = "D:/workspace/GAligner/data/QE_HF/mzml")
+raw_xdata <- extract_peaks(raw_xdata, raw_result_path, raw_samples)
+raw_grouped <- group_align(raw_xdata, bw = 6, binsize = 0.01)
+write_results(raw_grouped, "D:/workspace/GAligner/data/QE_HF_results_metapro/QE_HF_group_aligned_xcms.csv")
+```
+
+
+```{r}
+# QE_HF obiwarp
+raw_xdata <- load_mzml(mzml_path = "D:/workspace/GAligner/data/QE_HF/mzml")
+raw_xdata <- extract_peaks(raw_xdata, raw_result_path, raw_samples)
+raw_grouped <- obiwarp_align(raw_xdata, profStep = 1, bw = 6, binsize = 0.01)
+write_results(raw_grouped, "D:/workspace/GAligner/data/QE_HF_results_metapro/QE_HF_obiwarp_aligned_xcms.csv")
+
+```
+
+

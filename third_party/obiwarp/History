@@ -1,0 +1,8 @@
+0.9.4
+
+* silenced warnings
+* moved build to Rakefile (rewrote build system and to be much cleaner)
+
+0.9.3
+
+* added some include statements so that it would compile on more recent g++ compilers.  No change in code (or binaries) from 0.9.2

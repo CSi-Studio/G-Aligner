@@ -1,0 +1,119 @@
+
+<html>
+  <head><title>README.md</title></head>
+  <body>
+<h1>OBI-Warp</h1>
+
+<p>Ordered Bijective Interpolated Warping (OBI-Warp) aligns matrices along a
+single axis using Dynamic Time Warping (DTW) and a one-to-one (bijective)
+interpolated warp function.  OBI-Warp harnesses the non-linear, comprehensive
+alignment power of DTW and builds on the discrete, non-bijective output of DTW
+to give natural interpolants that can be used across multiple datasets.</p>
+
+<p>OBI-Warp was developed specifically for the chromatographic alignment of
+complex mass spectrometry (MS) proteomics data.  Using high confidence MS/MS
+identifications as time standards, OBI-Warp default parameters have been
+optimized to give accurate alignments under a variety of real-world conditions
+including datasets with little overlapping signal.  Command-line options to
+override defaults are available (e.g., gap penalty, local weights and number
+of bijective anchors).  Though developed for MS proteomics data, OBI-Warp is
+suited to a wide variety of alignment problems.</p>
+
+<p>Pearson's correlation coefficient, covariance, dot product, and Euclidean
+distance have been implemented as the available vector similarity functions.
+Redundant calculations for correlation coefficient and covariance are cached
+in the n x m comparisons to give the algorithmic equivalent of calculating the
+dot product.</p>
+
+<p>The dynamic programming algorithm is written to allow any arbitrary gap
+penalty function, or users may use a linear initiation and elongation penalty.
+Local weighting schemes may also be controlled.</p>
+
+<h3>Links</h3>
+
+<ul>
+<li><a href="://sourceforge.net/projects/obi-warp/">Project Summary Page</a></li>
+<li><a href="://sourceforge.net/project/showfiles.php?group_id=161548">Download OBI-Warp</a></li>
+<li><a href="://dx.doi.org/10.1021/ac0605344">Analytical Chemistry Publication</a></li>
+<li><a href="://bioinformatics.icmb.utexas.edu/obi-warp/">Supplementary Material for Publication</a> (<em>this server is currently down</em>)</li>
+</ul>
+
+
+<h2>Building</h2>
+
+<p>Building is tested rigorously on Ubuntu and should work fine on any POSIX
+system.  Windows compilation under VC++ should be possible and compilation
+with cygwin, or msys/mingw should work without any problems.</p>
+
+<h3>Prerequisites</h3>
+
+<p><a href="http://www.ruby-lang.org">ruby</a> and <em>rake</em>. <em>rake</em> comes standard with the
+newer ruby (1.9.X), but it can also be installed using
+<a href="http://rubygems.org/pages/download">rubygems</a> (for ruby versions below 1.9):</p>
+
+<pre><code>gem install rake
+</code></pre>
+
+<p>Optional: <em>valgrind</em> can be used for memory testing and
+<a href="http://www.bioinformatics.ubc.ca/matrix2png/download.html">matrix2png</a> can be
+used to create images of the various matrices.</p>
+
+<h3>Compiling</h3>
+
+<pre><code>rake
+# creates bin/obiwarp   (notice it is in the *bin* directory)
+</code></pre>
+
+<p>This will compile all the code and link it into the obiwarp executable.
+<strong>NOTE</strong>: All executables will be created in the <strong>bin</strong> directory (testing
+executables stay in the lib dir).</p>
+
+<p>If you want to explore other options:</p>
+
+<pre><code>rake -T
+</code></pre>
+
+<p>From within the <em>lib</em> directory, the generation of any file, intermediate, or
+test can be invoked by name.  For example:</p>
+
+<pre><code># build the lmat2lmata binary:
+rake lmat2lmata    # note, it will be in created in the bin directory
+# this also works
+rake ../bin/lmat2lmata
+</code></pre>
+
+<p>From the top directory, all the tasks (not necessarily filetasks) are available:</p>
+
+<pre><code># from the top level directory
+rake memtest
+# from the lib directory
+rake memtest
+</code></pre>
+
+<h3>Installation</h3>
+
+<p>Binaries are compiled and depositied in the <strong>bin</strong> folder. System
+installation is left to the user, but it can be as simple as:</p>
+
+<pre><code>rake      # make sure it is compiled and linked
+sudo cp bin/obiwarp /usr/local/bin/
+</code></pre>
+
+<h3>Testing</h3>
+
+<pre><code># run all tests
+rake test
+# if you have valgrind installed:
+rake memtest
+rake test_cmdparser.rb  # for tests written in ruby
+rake run_test_dynprog   # for tests written in cxxtest 'run_test_&lt;whatever&gt;'
+</code></pre>
+
+<p>tasks found in the lib Rakefile are also available from the top level Rakefile using
+the 'lib:' prefix:</p>
+
+<pre><code>rake clean      # from inside the lib directory
+rake lib:clean  # from the top dir
+</code></pre>
+  </body>
+</html>

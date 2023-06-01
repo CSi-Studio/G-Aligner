@@ -1,0 +1,213 @@
+require 'fileutils'
+require 'rake/clean'
+require 'open3'
+
+$VALGRIND_VERBOSE = false
+
+# build 32 bit on linux with "export CFLAGS=-m32"
+
+VAR = { 
+  'CFLAGS' => ENV['CFLAGS'],
+  :compiler => (ENV['COMPILER'] == 'mingw') ? 'i586-mingw32msvc-g++' : 'g++',
+  :bindir => '../bin',
+}
+
+SDK_INCLUDES =  %w(cxxtest ../sdk)
+SDK_DIR = "../sdk"
+Fl = FileList ; FU = FileUtils
+
+INCLUDES = SDK_INCLUDES.map {|f| '-I' + File.join(SDK_DIR,f) }.join(' ')
+
+def have_matrix2png?
+  begin
+    reply = `matrix2png --version`
+    reply && reply.match(/Usage:/)
+  rescue StandardError
+    false
+  end
+end
+
+def have_valgrind?
+  begin
+    `valgrind --help`
+  rescue SystemCallError
+    false
+  end
+end
+
+def build_from_template(template_filename, opts={})
+  opt = { :file_template_tag => '_TEMPLATE', 
+    :type_template_tag => 'FLOAT', 
+    :abbr_template_tag => 'ABR',
+    :start_flag => %r{//\s+BEGIN TEMPLATE},
+    :end_flag => %r{//\s+END TEMPLATE},
+    :to_build => { 'float' => 'F', 'double' => 'D', 'int' => 'I' }
+  }.merge(opts)
+  outfile = template_filename.gsub(opt[:file_template_tag],'')
+
+  abr_template_tag = 'ABR'
+  to_expand = []
+  pre_section = []
+  post_section = []
+  in_template_section = nil
+  IO.foreach(template_filename) do |line|
+    pre_section << line if in_template_section.nil?
+    in_template_section = false if line =~ opt[:end_flag]
+    to_expand << line if in_template_section
+    in_template_section = true if line =~ opt[:start_flag] 
+    post_section << line if in_template_section == false
+  end
+
+  all_lines_expanded = []
+  opt[:to_build].each do |c_type, abbr|
+    all_lines_expanded << to_expand.map {|line| line.gsub(opt[:type_template_tag], c_type).gsub(opt[:abbr_template_tag],abbr) }
+  end
+  File.open(outfile,'w') do |out|
+    out.print( pre_section.join << all_lines_expanded.join << post_section.join )
+  end
+end
+
+MY_BIN_DIR = File.expand_path("../bin")
+
+def link(executable, object_files)
+  sh "#{VAR[:compiler]} #{VAR["CFLAGS"]} -o #{executable} #{object_files.join(" ")}"
+end
+
+template_rule = lambda do |name, ext| 
+  file "#{name}.#{ext}" => "#{name}_TEMPLATE.#{ext}" do |fn|
+    build_from_template(fn.prerequisites[0])
+  end
+end
+
+def compile(object_file, prereq)
+  sh "#{VAR[:compiler]} #{VAR["CFLAGS"]} -c -o #{object_file} #{prereq} #{INCLUDES}"
+end
+
+OBIWARP_EXE = File.join(VAR[:bindir], 'obiwarp')
+UTILITIES = %w(mat2mata mata2mat lmat2chrms lmat2lmata lmat2png lmata2lmat)
+BASE = %w(vec mat lmat dynprog cmdparser pngio)
+BASE_OBJECT_FILES = BASE.map {|v| v << ".o" }
+
+TEMPLATE_FILES = Fl["*_TEMPLATE.*"]
+TEMPLATE_OUTPUT_FILES = TEMPLATE_FILES.map {|f| f.sub('_TEMPLATE','') }
+
+TEMPLATE_FILES.each do |fn|
+  file(fn.sub('_TEMPLATE','') => [fn]) { build_from_template(fn) }
+end
+
+desc 'create the files from template: *_TEMPLATE.*'
+task :stamp_templates => TEMPLATE_OUTPUT_FILES
+
+desc 'compile *.o files for core obi-warp library'
+task :compile_objects => (BASE_OBJECT_FILES + %w(obiwarp.o))
+
+TESTEXECS = []
+CPP_TEST_FILES_H = Fl["test_*.h"].reject {|v| v=~/TEMPLATE/} + %w(test_vec.h test_mat.h)
+CPP_TEST_FILES_H.delete("test_pngio.h") unless have_matrix2png?
+CPP_TEST_FILES_H.uniq!
+
+CPP_TEST_FILES_H.each do |hfile|
+  cppfile = hfile.ext('cpp')
+  ofile = hfile.ext('o')
+  no_ext = hfile.sub('.h','')
+  CLEAN << cppfile << ofile
+  CLOBBER << no_ext
+  file cppfile => [hfile] do |t|
+    sh "perl -w #{SDK_DIR}/cxxtest/cxxtestgen.pl --error-printer -o #{t.name} #{hfile}"
+  end
+  # BASE_OBJECT_FILES are required here only so that templates are stamped and
+  # .h files will be present
+  file ofile => [cppfile, *BASE_OBJECT_FILES] {|t| compile(ofile, cppfile) }
+  file no_ext => [ofile] { link(no_ext, [ofile, *BASE_OBJECT_FILES]) }
+  TESTEXECS << no_ext
+end
+
+TESTRUBYFILES = Fl["test_*.rb"]
+TESTRUBYFILES.each do |fn|
+  if fn =~ /converter/
+    task fn => [:utilities] {|t| sh "ruby #{t.name}" }
+  else
+    task fn => [OBIWARP_EXE] {|t| sh "ruby #{t.name}" }
+  end
+end
+
+rule '.o' => ['.cpp', '.h'] do |t|
+  compile(t.name, t.prerequisites[0])
+end
+
+rule '.o' => ['.cpp'] do |t|
+  compile(t.name, t.prerequisites[0])
+end
+
+EXECUTABLES_TO_DOCUMENT = %w(obiwarp)
+UTILITIES_IN_BINDIR = UTILITIES.map {|v| File.join(VAR[:bindir], v) }
+ALL_USE_EXECS = [OBIWARP_EXE, *UTILITIES_IN_BINDIR]
+
+# create executables
+ALL_USE_EXECS.each do |binpath|
+  basename = File.basename(binpath)
+  CLOBBER << binpath
+  file binpath => (BASE_OBJECT_FILES + ["#{basename}.o"]) do |t|
+    FU.mkpath VAR[:bindir] 
+    link(binpath, t.prerequisites)
+    #puts "*** GO TO: '#{File.expand_path(VAR[:bindir])}' to find \"#{executable}\" ***"
+  end
+  if EXECUTABLES_TO_DOCUMENT.include?(basename)
+    desc "create #{binpath}"
+  end
+  task basename => [binpath]
+end
+
+desc "create: #{UTILITIES.join(' ')}"
+task :utilities => UTILITIES_IN_BINDIR
+
+RUNTESTEXECS = TESTEXECS.map do |exe|
+  runtest = "run_#{exe}"
+  task runtest => [exe] {|t| sh File.join(Dir.getwd,exe) }
+  runtest 
+end
+
+ALL_MEMTESTS = TESTEXECS.map do |exe|
+  basename = File.basename(exe)
+  memtest = "memtest_#{basename}"
+  task memtest => [exe] do
+    if have_valgrind?
+      fn = File.join(Dir.getwd, exe)
+      if $VALGRIND_VERBOSE
+        sh "valgrind --tool=memcheck --leak-check=yes #{fn}"
+      else
+        Open3.popen3("valgrind --tool=memcheck --leak-check=yes #{fn}") do |stdin,stdout,stderr|
+          stderr.each do |line|
+            if md = line.match(/==\d+== (malloc\/free:.*)/)
+              puts md[1]
+            end
+            if md = line.match(/total heap usage: (([\d\,]*) allocs, ([\d\,]*) frees, [\d\,]* bytes allocated)/)
+              puts "*** #{basename}: #{md[1]}"
+              if md[2] != md[3]
+                puts (ast="*"*40) + " WARNING!!!! potential memory leak! " + ast
+              end
+            end
+          end
+        end
+      end
+    else
+      puts "requires valgrind to run memcheck! (Linux)"
+    end
+  end
+  memtest
+end
+
+desc "run memory checks against all execs (run each separate: memtest_<exe>)"
+task :memtest => ALL_MEMTESTS
+
+desc ([%Q{"test_*.rb"}] + %w(and) + %w("run_test_") + TESTEXECS.map{|v|v.sub('test_','')}).join(' ')
+task :test => TESTRUBYFILES + RUNTESTEXECS
+
+task :default => OBIWARP_EXE
+
+############################################################
+# CLEANUP
+############################################################
+
+CLEAN.add(Fl["*.o"], TEMPLATE_OUTPUT_FILES).existing!
+CLOBBER.existing!

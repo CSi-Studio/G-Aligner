@@ -1,0 +1,143 @@
+require 'rake/clean'
+require 'rake/packagetask'
+
+$INCLUDED_FILES = nil
+
+CLEAN.add('pkg')
+CLEAN.existing!
+CLOBBER.add(*FileList["bin/*"])
+
+def unix?
+  RUBY_PLATFORM =~ /(aix|darwin|linux|(net|free|open)bsd|cygwin|solaris|irix|hpux)/i
+end
+
+# lame
+def get_tasks(rakefile)
+  get_tasks = %Q{ruby -e '
+    load "#{rakefile}" 
+    tm=nil
+    ObjectSpace.each_object {|v| tm=v if v.is_a?(Rake::Application) }
+    p tm.tasks.select {|v| v.is_a?(Rake::Task) }.map {|v| [v.name, v.comment] }
+    '
+  }
+  eval `#{get_tasks}`
+end
+
+def get_real_lib_files(rakefile)
+  get_tasks = %Q{ruby -e '
+    load "#{rakefile}" 
+    '
+  }
+end
+
+# position can be :major, :minor, or :patch
+def bump_version(position=:patch)
+  index = {:major => 0, :minor => 1, :patch => 2}
+  versions = VERSION.split('.').map(&:to_i)
+  versions[ index[position] ] += 1
+  version_string = versions.join('.')
+  File.open(VERSION_FILE,'w') {|out| out.puts version_string }
+  # update code from VERSION
+  replaced = IO.readlines(CODE_VERSION).map do |line|
+    if line.match(/VERSION\s*=/)
+      %Q{char * VERSION = (char *)"#{version_string}";} + "\n"
+    else ; line
+    end
+  end.join
+  File.open(CODE_VERSION,'w') {|out| out.print replaced }
+end
+
+VERSION_FILE = 'VERSION'
+VERSION = IO.read(VERSION_FILE).chomp
+
+
+
+=begin
+ catchall that allows any task in the subdirectory to be run from the top
+rule "" do |t|
+  cd "lib"
+  sh "rake #{t.name}"
+  cd TOPDIR
+end
+=end
+
+QUIET = {:verbose => false }
+TOPDIR = File.expand_path(File.dirname(__FILE__))
+LIBDIR = File.expand_path('lib')
+
+# this is lame, but I can't figure out a better way to do this right now
+cd LIBDIR, QUIET
+tasks = get_tasks("Rakefile") 
+cd TOPDIR, QUIET
+LIB_NS = :lib
+
+TASKS_TO_DUP = []
+namespace LIB_NS do
+  tasks.each do |name, comment|
+    if comment
+      TASKS_TO_DUP << [name, comment]
+      #desc comment
+      task name do 
+        cd LIBDIR
+        sh "rake #{name}"
+        cd TOPDIR, QUIET
+      end
+    end
+  end
+end
+
+TASKS_TO_DUP.each do |name, comment|
+  desc comment
+  task name => ["#{LIB_NS}:#{name}"]
+end
+
+TEMPLATES_STAMPED = FileList["lib/**/*TEMPLATE.*"].map! {|v| v.sub('_TEMPLATE','') }
+INCLUDED_FILES = FileList["lib/**/*", "bin/*", "*", *TEMPLATES_STAMPED].reject {|v| v =~ /\.o$/ }
+
+Rake::PackageTask.new("obiwarp", VERSION) do |p|
+  p.need_tar = true
+  p.need_zip = true
+  p.package_files.include(INCLUDED_FILES)
+end
+
+desc 'safe, complete build process (avoid package)'
+task :build => [:clobber, :doc, :stamp_templates, :package]
+
+Rake::Task[:clean].prerequisites ||= []
+Rake::Task[:clean].prerequisites << :clobber_package
+
+CODE_VERSION = "lib/obiwarp.cpp"
+
+%w(major minor patch).each do |v|
+  desc "bumps #{v} number in VERSION (and #{CODE_VERSION})"
+  task "version:bump:#{v}" do
+    bump_version(v.to_sym)
+  end
+end
+
+task :version do
+  print IO.read(VERSION_FILE)
+end
+
+task :default => 'obiwarp'
+
+desc "generate html page with bluecloth"
+task :doc do
+  sh "bluecloth README.md > README.html"
+end
+
+desc "build a native binary"
+task "binary" do
+  cd LIBDIR
+  sh %Q{export CFLAGS="$CFLAGS -O3" ; rake obiwarp}
+  cd TOPDIR
+  mv "bin/obiwarp", "bin/obiwarp-#{RUBY_PLATFORM}" + (unix? ? '' : '.exe')
+end
+
+desc "build a windows binary with mingw (mingw-g++ needed)"
+task "windows_binary" do
+  cd LIBDIR
+  sh %Q{export COMPILER=mingw ; export CFLAGS="$CFLAGS -O3" ; rake obiwarp}
+  cd TOPDIR
+  mv "bin/obiwarp", "bin/obiwarp.exe"
+end
