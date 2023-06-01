@@ -11,9 +11,9 @@
 ## Datasets
 Raw MS files of the metabolomics datasets can be downloaded at [Google Drive](https://drive.google.com/drive/folders/1PRDIvihGFgkmErp2fWe41UR2Qs2VY_5G).
 
-The mzML files of the metabolomics datasets can be downloaded at [Zenodo](https://zenodo.org/record/6582912).
+The mzML files of the metabolomics datasets can be downloaded at [Zenodo](https://doi.org/10.5281/zenodo.7995789).
 
-Targeted annotation results, evaluation results and evaluation methods can be downloaded at [Zenodo](https://zenodo.org/record/6582912).
+Targeted annotation results, evaluation results and evaluation methods can be downloaded at [Zenodo](https://doi.org/10.5281/zenodo.7995789).
 
 
 ## Setup
