@@ -14,7 +14,6 @@ from src.result_file_reader import ResultFileReader
 from src.coarse_registration import obiwarp_align_3d, ransac_align
 from src.fine_alignment import Graph
 
-from src.map_solver.local_greedy_solver import local_greedy_solve
 from src.map_solver.local_bipartite_solver import local_bipartite_solve
 from src.map_solver.local_nearest_solver import local_nearest_solve
 
@@ -143,10 +142,6 @@ class GAligner:
                   (self.fine_assignment_params.vlsns_solution_init_mode,
                    self.fine_assignment_params.vlsns_solution_init_number,
                    self.fine_assignment_params.vlsns_solution_update_mode))
-        elif self.fine_assignment_params.solver == 'local_greedy':
-            solver = local_greedy_solve
-            need_partition = False
-            print('\tUsing local greedy solver...')
         elif self.fine_assignment_params.solver == 'local_bipartite':
             solver = local_bipartite_solve
             need_partition = False
@@ -179,34 +174,8 @@ class GAligner:
         plt.hist(need_assign_node_nums, bins=list(range(0, max(need_assign_node_nums) + 1, max(1, int(len(result_data_list) / 4)))))
         plt.show()
 
-        # targets = [[214.07170,0.72550],
-        #         [289.10930,9.33243],
-        #         [312.09300,5.65617],
-        #         [318.11240,21.87862],
-        #         [320.13950,3.43698],
-        #         [334.06350,5.03905],
-        #         [361.18460,8.57348],
-        #         [399.07370,12.10627],
-        #         [403.08660,5.67067],
-        #         [431.25490,5.29520],
-        #         [470.22970,16.79612],
-        #         [514.19970,7.29857],
-        #         [632.25000,31.14852]]
-
-        # targets = [[223.08700,10.27620],[235.10130,5.14188],[306.03050,7.58022],[312.17110,4.74502],[313.17410,4.74502],[344.18620,4.50532],[397.00970,22.78168],[397.17760,4.54663],[417.11960,3.43127],[462.15790,14.63252],[478.09750,22.56572],[486.26290,16.17190],[499.22380,11.06058],[499.22940,3.96155],[508.13860,6.11658],[522.15880,23.09302],[530.13180,28.73212],[592.26770,31.39088],[636.49810,3.29993],[813.26410,19.74638],[847.45270,22.91600],[914.52420,31.80955]]
-
         for i, sub_graph in enumerate(sub_graphs):
-            # import networkx as nx
-            # mzs = list(nx.get_node_attributes(sub_graph, 'mz').values())
-            # rts = list(nx.get_node_attributes(sub_graph, 'rt').values())
-            # matched = False
-            # for target in targets:
-            #     if min(mzs) - 0.0001 <= target[0] <= max(mzs) + 0.0001 and min(rts) - 0.0001 <= target[1] <= max(rts) + 0.0001:
-            #         matched = True
-            # if not matched:
-            #     continue
-            # if i < 6543:
-            #     continue
+
             node_limit = 20
             if need_partition and len(sub_graph) > node_limit:
                 assignment_nodes = []
@@ -223,13 +192,6 @@ class GAligner:
             else:
                 need_assign_list += [1] * len(assignment_nodes)
 
-            # if matched:
-            #     # graph_viewer.plt_assignment(sub_graph, assignment_nodes)
-            #
-            #     graph_viewer.plt_scatter(sub_graph, save=True, save_folder=self.save_folder,
-            #                              save_name='%d_%d' % (i, len(sub_graph)))
-            #     graph_viewer.plt_assignment(sub_graph, assignment_nodes, save=True, save_folder=self.save_folder,
-            #                                 save_name='%d_%d' % (i, len(sub_graph)))
             if len(sub_graph) > len(result_data_list) * 4 and subgraph_save_count < 10:
                 subgraph_save_count += 1
                 graph_viewer.plt_scatter(sub_graph, save=True, save_folder=self.save_folder, save_name='%d_%d' % (i, len(sub_graph)))
