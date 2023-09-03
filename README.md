@@ -39,6 +39,11 @@ Place the data download from the Zenodo repository as follows.
 ```
 G-Aligner-master
 ├── data
+│   ├── MTBLS562
+│   ├── MTBLS562_results_metapro
+│   ├── MTBLS562_results_mzmine2
+│   ├── MTBLS562_results_openms
+│   ├── MTBLS562_results_xcms
 │   ├── QE_HF
 │   ├── QE_HF_results_metapro
 │   ├── QE_HF_results_mzmine2
