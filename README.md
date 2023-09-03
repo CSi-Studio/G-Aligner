@@ -29,6 +29,9 @@ Targeted annotation results, evaluation results and evaluation methods can be do
 
 ## Run G-Aligner
 
+### Supported formats
+Feature extraction rsults in csv format, containing m/z, RT and area columns.
+
 ### Demos
 Our demos can help you reproduce the evaluation results.
 
@@ -57,7 +60,7 @@ G-Aligner-master
 │   ├── software_result_comparison.py
 ```
 
-To run the benchmark scripts:
+- To run the benchmark scripts:
 
 ```cd ROOT_PATH```
 
@@ -65,9 +68,11 @@ To run the benchmark scripts:
 
 ```python data/software_result_comparison.py```
 
-To analyze with G-Aligner:
+- To analyze with G-Aligner:
 
 ```cd ROOT_PATH```
+
+Change the parameters in data/evaluate_metapro_galigner.py
 
 ```python data/evaluate_metapro_galigner.py```
 

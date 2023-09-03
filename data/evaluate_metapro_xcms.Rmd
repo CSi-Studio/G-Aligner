@@ -12,6 +12,8 @@ Load XCMS library
 ```{r}
 library(xcms)
 library(SummarizedExperiment)
+library(BiocParallel)
+register(SerialParam())
 ```
 
 
@@ -111,8 +113,15 @@ Result paths
 
 wiff_result_path <- 'D:/workspace/GAligner/data/TripleTOF_6600/metapro/'
 raw_result_path <- 'D:/workspace/GAligner/data/QE_HF/metapro/'
+mtbls_result_path <- 'D:/workspace/GAligner/data/MTBLS562/metapro/'
+
 wiff_samples <- c('SampleA_1', 'SampleA_2', 'SampleA_3', 'SampleA_4', 'SampleB_1', 'SampleB_2', 'SampleB_3', 'SampleB_4')
 raw_samples <- c('SA1', 'SA2', 'SA3', 'SA4', 'SA5', 'SB1', 'SB2', 'SB3', 'SB4', 'SB5')
+mtbls_samples <- c('12W-1', '12W-2', '12W-3', '12W-4', '12W-5', '12W-6', '12W-7', '12W-8',
+                   '24W-1', '24W-2', '24W-3', '24W-4', '24W-5', '24W-6', '24W-7', '24W-8',
+                   '32W-1', '32W-2', '32W-3', '32W-4', '32W-5', '32W-6', '32W-7', '32W-8',
+                   '4W-1', '4W-2', '4W-3', '4W-4', '4W-5', '4W-6', '4W-7', '4W-8',
+                   '52W-1', '52W-2', '52W-3', '52W-4', '52W-5', '52W-6', '52W-7', '52W-8')
 ```
 
 
@@ -151,6 +160,31 @@ raw_xdata <- load_mzml(mzml_path = "D:/workspace/GAligner/data/QE_HF/mzml")
 raw_xdata <- extract_peaks(raw_xdata, raw_result_path, raw_samples)
 raw_grouped <- obiwarp_align(raw_xdata, profStep = 1, bw = 6, binsize = 0.01)
 write_results(raw_grouped, "D:/workspace/GAligner/data/QE_HF_results_metapro/QE_HF_obiwarp_aligned_xcms.csv")
+
+```
+
+
+```{r}
+# MTBLS group
+mtbls_xdata <- load_mzml(mzml_path = "D:/data/MTBLS562/mzml")
+mtbls_xdata <- extract_peaks(mtbls_xdata, mtbls_result_path, mtbls_samples)
+align_time <- Sys.time()
+mtbls_grouped <- group_align(mtbls_xdata, bw = 10, binsize = 0.02)
+write_results(mtbls_grouped, "D:/workspace/GAligner/data/MTBLS562_results_metapro/MTBLS562_group_aligned_xcms.csv")
+print("Align time taken: ")
+print(Sys.time() - align_time)
+```
+
+
+```{r}
+# MTBLS obiwarp
+mtbls_xdata <- load_mzml(mzml_path = "D:/data/MTBLS562/mzml")
+mtbls_xdata <- extract_peaks(mtbls_xdata, mtbls_result_path, mtbls_samples)
+align_time <- Sys.time()
+mtbls_grouped <- obiwarp_align(mtbls_xdata, profStep = 1, bw = 10, binsize = 0.02)
+write_results(mtbls_grouped, "D:/workspace/GAligner/data/MTBLS562_results_metapro/MTBLS562_obiwarp_aligned_xcms.csv")
+print("Align time taken: ")
+print(Sys.time() - align_time)
 
 ```
 

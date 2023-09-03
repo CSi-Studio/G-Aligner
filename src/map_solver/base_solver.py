@@ -104,7 +104,7 @@ def calc_cost(sub_graph, group_node_list, group_len_list, idx, greedy=False):
     connected_components = list(nx.connected_components(tmp_sub_graph))
 
     dumb_node_cost = dumb_node_num * 1.0  # cost of each dumb node should be bigger than the difference of distribution cost of adding a non-dumb new node
-    max_adjacent_bonus = 0.3
+    max_adjacent_bonus = 0.04 * len(group_len_list)
     # linear_bonus_factor = max_adjacent_bonus / len(group_len_list)
     # max_connected_nodes = max([len(node_set) for node_set in connected_components])
     # node_num_bonus_linear = max_connected_nodes * (max_connected_nodes + 1) / 2 * linear_bonus_factor
@@ -280,6 +280,94 @@ def graph_merging(graph, assignment_nodes):
 
     if len(edges) == 0:
         return assignment_nodes
+
+    sorted_idxes = np.argsort(np.array(edges)[:, -1])
+
+    merge_idxes = []
+    for i in sorted_idxes:
+        edge = edges[i]
+        if data_idx_conflict(data_idxes[edge[0]], data_idxes[edge[1]]):
+            continue
+        merged_data_idx = data_idxes[edge[0]] + data_idxes[edge[1]]
+        matched_idx = [-1, -1]
+        for j, idxes in enumerate(merge_idxes):
+            if edge[0] in idxes:
+                matched_idx[0] = j
+            if edge[1] in idxes:
+                matched_idx[1] = j
+
+        if matched_idx[0] == -1 and matched_idx[1] == -1:
+            merge_idxes.append([edge[0], edge[1]])
+            data_idxes[edge[0]] = merged_data_idx
+            data_idxes[edge[1]] = merged_data_idx
+        elif matched_idx[0] != -1 and matched_idx[1] != -1:
+            merge_idxes[matched_idx[0]] += merge_idxes[matched_idx[1]]
+            for idx in merge_idxes[matched_idx[0]]:
+                data_idxes[idx] = merged_data_idx
+            merge_idxes.remove(merge_idxes[matched_idx[1]])
+        else:
+            merge_idx = matched_idx[0] + matched_idx[1] + 1
+            for k in range(2):
+                if edge[k] not in merge_idxes[merge_idx]:
+                    merge_idxes[merge_idx].append(edge[k])
+            for idx in merge_idxes[merge_idx]:
+                data_idxes[idx] = merged_data_idx
+
+    remove_idxes = []
+    for idxes in merge_idxes:
+        idxes.sort()
+        assignment_nodes[idxes[0]] = list(assignment_nodes[idxes[0]])
+        for j in range(1, len(idxes)):
+            assignment_nodes[idxes[0]] += list(assignment_nodes[idxes[j]])
+            remove_idxes.append(idxes[j])
+    remove_idxes.sort(reverse=True)
+    for idx in remove_idxes:
+        assignment_nodes.remove(assignment_nodes[idx])
+
+    return assignment_nodes
+
+
+def result_merging(assignment_nodes, mz_tolerance, rt_tolerance):
+    def data_idx_conflict(data_idxes_1, data_idxes_2):
+        for date_idx_1 in data_idxes_1:
+            if date_idx_1 in data_idxes_2:
+                return True
+        return False
+
+    def dist_between_clusters(cluster_1, cluster_2, mz_tolerance, rt_tolerance):
+        min_dist = 10
+        for node_1 in cluster_1:
+            mz_1 = node_1[1]['mz']
+            rt_1 = node_1[1]['rt']
+            data_idx_1 = node_1[1]['data_idx']
+            for node_2 in cluster_2:
+                data_idx_2 = abs(rt_1 - node_2[1]['data_idx'])
+                if data_idx_1 == data_idx_2:
+                    return 10
+                dev_mz = abs(mz_1 - node_2[1]['mz'])
+                dev_rt = abs(rt_1 - node_2[1]['rt'])
+                if dev_mz > 10 * mz_tolerance or dev_rt > 10 * rt_tolerance:
+                    return 10
+                if dev_mz < mz_tolerance and dev_rt < rt_tolerance:
+                    tmp_dist = (dev_mz / mz_tolerance) * (dev_mz / mz_tolerance) + \
+                               (dev_rt / rt_tolerance) * (dev_rt / rt_tolerance)
+                    if tmp_dist < min_dist:
+                        min_dist = tmp_dist
+        return min_dist
+
+    edges = []
+    for i in range(len(assignment_nodes)):
+        for j in range(i + 1, len(assignment_nodes)):
+            dist = dist_between_clusters(assignment_nodes[i], assignment_nodes[j], mz_tolerance, rt_tolerance)
+            if dist <= 2:
+                edges.append([i, j, dist])
+
+    if len(edges) == 0:
+        return assignment_nodes
+
+    data_idxes = []
+    for nodes in assignment_nodes:
+        data_idxes.append([node[1]['data_idx'] for node in nodes])
 
     sorted_idxes = np.argsort(np.array(edges)[:, -1])
 

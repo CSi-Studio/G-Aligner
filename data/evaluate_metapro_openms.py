@@ -106,5 +106,6 @@ def eval(folder_name, align_mz_tolerance, align_rt_tolerance, match_mz_tolerance
     file.close()
 
 
-eval('TripleTOF_6600', align_mz_tolerance=0.01, align_rt_tolerance=0.5, match_mz_tolerance=0.01, match_rt_tolerance=0.5)
-eval('QE_HF', align_mz_tolerance=0.005, align_rt_tolerance=0.3, match_mz_tolerance=0.005, match_rt_tolerance=0.3)
+# eval('TripleTOF_6600', align_mz_tolerance=0.01, align_rt_tolerance=0.5, match_mz_tolerance=0.01, match_rt_tolerance=0.5)
+# eval('QE_HF', align_mz_tolerance=0.005, align_rt_tolerance=0.3, match_mz_tolerance=0.005, match_rt_tolerance=0.3)
+eval('MTBLS562', align_mz_tolerance=0.015, align_rt_tolerance=0.3, match_mz_tolerance=0.015, match_rt_tolerance=0.3)

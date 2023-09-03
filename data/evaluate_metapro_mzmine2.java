@@ -8,11 +8,15 @@ import net.sf.mzmine.datamodel.impl.SimpleDataPoint;
 import net.sf.mzmine.datamodel.impl.SimpleFeature;
 import net.sf.mzmine.datamodel.impl.SimplePeakList;
 import net.sf.mzmine.datamodel.impl.SimplePeakListRow;
+import net.sf.mzmine.modules.peaklistmethods.alignment.join.JoinAlignerParameters;
+import net.sf.mzmine.modules.peaklistmethods.alignment.join.JoinAlignerTask;
 import net.sf.mzmine.parameters.ParameterSet;
+import net.sf.mzmine.parameters.parametertypes.selectors.PeakListsSelectionType;
 import net.sf.mzmine.parameters.parametertypes.tolerances.MZTolerance;
 import net.sf.mzmine.parameters.parametertypes.tolerances.RTTolerance;
 import net.sf.mzmine.project.impl.MZmineProjectImpl;
 import net.sf.mzmine.project.impl.RawDataFileImpl;
+import weka.core.pmml.jaxbbindings.False;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -21,7 +25,7 @@ import java.io.FileWriter;
 public class evaluate_mzmine2 {
 
     public static void eval(String[] csvFilePaths, String outputFilePath, double mz_tolerance, double ppm_mz_tolerance,
-                            double rt_tolerance, double margin) {
+                            double rt_tolerance_before, double rt_tolerance_after, double margin, String method) {
         RawDataFile[] rawDataFiles = new RawDataFile[csvFilePaths.length];
         MZmineProject project = new MZmineProjectImpl();
         PeakList[] peakLists = new PeakList[csvFilePaths.length];
@@ -54,25 +58,45 @@ public class evaluate_mzmine2 {
             e.printStackTrace();
         }
 
-        ParameterSet parameters = new RansacAlignerParameters();
         MZTolerance mzTolerance  = new MZTolerance(mz_tolerance, ppm_mz_tolerance);
-        RTTolerance rtToleranceBefore = new RTTolerance(true, rt_tolerance);
-        RTTolerance rtToleranceAfter = new RTTolerance(true, rt_tolerance);
+        RTTolerance rtToleranceBefore = new RTTolerance(true, rt_tolerance_before);
+        RTTolerance rtToleranceAfter = new RTTolerance(true, rt_tolerance_after);
+        switch (method) {
+            case "ransac":
+                ParameterSet ransacParams = new RansacAlignerParameters();
+                ransacParams.getParameter(RansacAlignerParameters.MZTolerance).setValue(mzTolerance);
+                ransacParams.getParameter(RansacAlignerParameters.RTToleranceBefore).setValue(rtToleranceBefore);
+                ransacParams.getParameter(RansacAlignerParameters.RTToleranceAfter).setValue(rtToleranceAfter);
 
-        parameters.getParameter(RansacAlignerParameters.MZTolerance).setValue(mzTolerance);
-        parameters.getParameter(RansacAlignerParameters.RTToleranceBefore).setValue(rtToleranceBefore);
-        parameters.getParameter(RansacAlignerParameters.RTToleranceAfter).setValue(rtToleranceAfter);
+                ransacParams.getParameter(RansacAlignerParameters.peakListName).setValue("RANSAC");
+                ransacParams.getParameter(RansacAlignerParameters.SameChargeRequired).setValue(false);
 
-        parameters.getParameter(RansacAlignerParameters.peakListName).setValue("RANSAC");
-        parameters.getParameter(RansacAlignerParameters.SameChargeRequired).setValue(false);
+                ransacParams.getParameter(RansacAlignerParameters.Iterations).setValue(100000);
+                ransacParams.getParameter(RansacAlignerParameters.NMinPoints).setValue(0.5);
+                ransacParams.getParameter(RansacAlignerParameters.Margin).setValue(margin);
+                ransacParams.getParameter(RansacAlignerParameters.Linear).setValue(false);
 
-        parameters.getParameter(RansacAlignerParameters.Iterations).setValue(100000);
-        parameters.getParameter(RansacAlignerParameters.NMinPoints).setValue(0.5);
-        parameters.getParameter(RansacAlignerParameters.Margin).setValue(margin);
-        parameters.getParameter(RansacAlignerParameters.Linear).setValue(false);
+                RansacAlignerTask ransacTask = new RansacAlignerTask(project, peakLists, ransacParams);
+                ransacTask.run();
+                break;
+            case "join":
+                ParameterSet joinParams = new JoinAlignerParameters();
+                joinParams.getParameter(JoinAlignerParameters.MZTolerance).setValue(mzTolerance);
+                joinParams.getParameter(JoinAlignerParameters.MZWeight).setValue(1d);
+                joinParams.getParameter(JoinAlignerParameters.RTTolerance).setValue(rtToleranceAfter);
+                joinParams.getParameter(JoinAlignerParameters.RTWeight).setValue(1d);
 
-        RansacAlignerTask task = new RansacAlignerTask(project, peakLists, parameters);
-        task.run();
+                joinParams.getParameter(JoinAlignerParameters.peakListName).setValue("Join");
+                joinParams.getParameter(JoinAlignerParameters.peakLists).setValue(PeakListsSelectionType.SPECIFIC_PEAKLISTS, peakLists);
+                joinParams.getParameter(JoinAlignerParameters.SameChargeRequired).setValue(false);
+                joinParams.getParameter(JoinAlignerParameters.SameIDRequired).setValue(false);
+                JoinAlignerTask joinTask = new JoinAlignerTask(project, joinParams);
+                joinTask.run();
+                break;
+        }
+
+
+
         PeakListRow[] resultList = project.getPeakLists()[0].getRows();
         try {
             CSVWriter csvWriter = new CSVWriter(new FileWriter(outputFilePath));
@@ -122,33 +146,95 @@ public class evaluate_mzmine2 {
     }
 
     public static void main(String[] args) {
-        String[] wiffFilePaths = new String[]{
-                "D:\\workspace\\GAligner\\data\\TripleTOF_6600\\metapro\\SampleA_1.csv",
-                "D:\\workspace\\GAligner\\data\\TripleTOF_6600\\metapro\\SampleA_2.csv",
-                "D:\\workspace\\GAligner\\data\\TripleTOF_6600\\metapro\\SampleA_3.csv",
-                "D:\\workspace\\GAligner\\data\\TripleTOF_6600\\metapro\\SampleA_4.csv",
-                "D:\\workspace\\GAligner\\data\\TripleTOF_6600\\metapro\\SampleB_1.csv",
-                "D:\\workspace\\GAligner\\data\\TripleTOF_6600\\metapro\\SampleB_2.csv",
-                "D:\\workspace\\GAligner\\data\\TripleTOF_6600\\metapro\\SampleB_3.csv",
-                "D:\\workspace\\GAligner\\data\\TripleTOF_6600\\metapro\\SampleB_4.csv"
-        };
-        String wiffOutputPath = "D:\\workspace\\GAligner\\data\\TripleTOF_6600_results_metapro\\TripleTOF_6600_aligned_mzmine2.csv";
-        eval(wiffFilePaths, wiffOutputPath, 0.01, 0.0, 0.5, 0.1);
+//        String[] wiffFilePaths = new String[]{
+//                "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600\\SampleA_1.csv",
+//                "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600\\SampleA_2.csv",
+//                "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600\\SampleA_3.csv",
+//                "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600\\SampleA_4.csv",
+//                "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600\\SampleB_1.csv",
+//                "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600\\SampleB_2.csv",
+//                "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600\\SampleB_3.csv",
+//                "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600\\SampleB_4.csv"
+//        };
+//        String wiffOutputPath = "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600_results\\TripleTOF_6600_aligned_mzmine2_ransac1.csv";
+//        long startTime = System.currentTimeMillis();
+//        eval(wiffFilePaths, wiffOutputPath, 0.01, 0.0, 0.3, 0.5, 0.05, "ransac");
+//        System.out.println(System.currentTimeMillis() - startTime);
+//        startTime = System.currentTimeMillis();
+//        wiffOutputPath = "D:\\workspace\\GAligner\\metapro\\TripleTOF_6600_results\\TripleTOF_6600_aligned_mzmine2_join1.csv";
+//        eval(wiffFilePaths, wiffOutputPath, 0.01, 0.0, 0.3, 0.5, 0.05, "join");
+//        System.out.println(System.currentTimeMillis() - startTime);
+//        startTime = System.currentTimeMillis();
+//
+//        String[] rawFilePaths = new String[]{
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SA1.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SA2.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SA3.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SA4.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SA5.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SB1.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SB2.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SB3.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SB4.csv",
+//                "D:\\workspace\\GAligner\\metapro\\QE_HF\\SB5.csv"
+//        };
+//        String rawOutputPath = "D:\\workspace\\GAligner\\metapro\\QE_HF_results\\QE_HF_aligned_mzmine2_ransac1.csv";
+//        eval(rawFilePaths, rawOutputPath, 0.005, 0.0, 0.15, 0.3, 0.025, "ransac");
+//        System.out.println(System.currentTimeMillis() - startTime);
+//        startTime = System.currentTimeMillis();
+//        rawOutputPath = "D:\\workspace\\GAligner\\metapro\\QE_HF_results\\QE_HF_aligned_mzmine2_join1.csv";
+//        eval(rawFilePaths, rawOutputPath, 0.005, 0.0, 0.15, 0.3, 0.025, "join");
+//        System.out.println(System.currentTimeMillis() - startTime);
 
-        String[] rawFilePaths = new String[]{
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SA1.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SA2.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SA3.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SA4.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SA5.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SB1.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SB2.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SB3.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SB4.csv",
-                "D:\\workspace\\GAligner\\data\\QE_HF\\metapro\\SB5.csv"
+        String[] mtblsFilePaths = new String[]{
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\12W-1.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\12W-2.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\12W-3.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\12W-4.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\12W-5.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\12W-6.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\12W-7.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\12W-8.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\24W-1.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\24W-2.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\24W-3.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\24W-4.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\24W-5.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\24W-6.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\24W-7.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\24W-8.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\32W-1.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\32W-2.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\32W-3.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\32W-4.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\32W-5.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\32W-6.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\32W-7.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\32W-8.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\4W-1.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\4W-2.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\4W-3.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\4W-4.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\4W-5.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\4W-6.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\4W-7.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\4W-8.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\52W-1.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\52W-2.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\52W-3.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\52W-4.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\52W-5.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\52W-6.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\52W-7.csv",
+                "D:\\workspace\\GAligner\\data\\MTBLS562\\metapro\\52W-8.csv",
         };
-        String rawOutputPath = "D:\\workspace\\GAligner\\data\\QE_HF_results_metapro\\QE_HF_aligned_mzmine2.csv";
-        eval(rawFilePaths, rawOutputPath, 0.005, 0.0, 0.3, 0.05);
-
+        String mtblsOutputPath = "D:\\workspace\\GAligner\\data\\MTBLS562_results_metapro\\MTBLS562_aligned_mzmine2_ransac.csv";
+        Long startTime = System.currentTimeMillis();
+        eval(mtblsFilePaths, mtblsOutputPath, 0.015, 0.0, 0.1, 0.3, 0.05, "ransac");
+        System.out.println(System.currentTimeMillis() - startTime);
+        startTime = System.currentTimeMillis();
+        mtblsOutputPath = "D:\\workspace\\GAligner\\data\\MTBLS562_results_metapro\\MTBLS562_aligned_mzmine2_join.csv";
+        eval(mtblsFilePaths, mtblsOutputPath, 0.015, 0.0, 0.1, 0.3, 0.05, "join");
+        System.out.println(System.currentTimeMillis() - startTime);
     }
 }

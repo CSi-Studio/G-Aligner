@@ -17,7 +17,7 @@ from src.fine_alignment import Graph
 from src.map_solver.local_bipartite_solver import local_bipartite_solve
 from src.map_solver.local_nearest_solver import local_nearest_solve
 
-from src.map_solver.base_solver import graph_partitioning, graph_merging
+from src.map_solver.base_solver import graph_partitioning, graph_merging, result_merging
 from src.map_solver.gurobi_solver import gurobi_solve
 from src.map_solver.ortools_solver import ortools_cp_solve, ortools_mip_solve
 from src.map_solver.greedy_solver import greedy_solve
@@ -155,27 +155,30 @@ class GAligner:
 
         subgraph_save_count = 0
         assignment_nodes_list = []
-        need_assign_list = []
         # get no need to assign number
         from src.map_solver.base_solver import graph_preprocessing
-        no_need_to_assign_cnt = 0
         no_need_to_assign_full_cnt = 0
+        no_need_assign_list = []
         need_assign_node_nums = []
         for sub_graph in sub_graphs:
             no_need_to_assign, _, _, _, _ = graph_preprocessing(sub_graph)
+            no_need_assign_list.append(no_need_to_assign)
             if no_need_to_assign:
-                no_need_to_assign_cnt += 1
                 if len(sub_graph) == len(result_data_list):
                     no_need_to_assign_full_cnt += 1
             else:
                 need_assign_node_nums.append(len(sub_graph))
-        print('No need to assign number: ' + str(no_need_to_assign_cnt))
+        print('No need to assign number: ' + str(np.sum(no_need_assign_list)))
         print('No need to assign full number: ' + str(no_need_to_assign_full_cnt))
         plt.hist(need_assign_node_nums, bins=list(range(0, max(need_assign_node_nums) + 1, max(1, int(len(result_data_list) / 4)))))
         plt.show()
 
+        need_assign_list = []
         for i, sub_graph in enumerate(sub_graphs):
-
+            if no_need_assign_list[i]:
+                assignment_nodes_list.append(sub_graph.nodes(data=True))
+                need_assign_list.append(0)
+                continue
             node_limit = 20
             if need_partition and len(sub_graph) > node_limit:
                 assignment_nodes = []
@@ -187,10 +190,7 @@ class GAligner:
             else:
                 assignment_nodes = solver(sub_graph, self.fine_assignment_params, debug=self.debug)
             assignment_nodes_list += assignment_nodes
-            if len(assignment_nodes) == 1:
-                need_assign_list.append(0)
-            else:
-                need_assign_list += [1] * len(assignment_nodes)
+            need_assign_list += [1] * len(assignment_nodes)
 
             if len(sub_graph) > len(result_data_list) * 4 and subgraph_save_count < 10:
                 subgraph_save_count += 1
@@ -205,6 +205,9 @@ class GAligner:
         print('\tSaved figures of %d sub-graphs (nodes > 4 * file_num) to ~/experiments/results/%s'
               % (subgraph_save_count, self.save_folder))
 
+        # assignment_nodes_list = result_merging(assignment_nodes_list,
+        #                                        self.fine_assignment_params.mz_tolerance * 2,
+        #                                        self.fine_assignment_params.rt_tolerance * 2)
         # 4. Assemble assignment results
         start_time = time.time()
         print('Assembling results...')

@@ -5,8 +5,6 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from src.map_solver.base_solver import graph_preprocessing, calc_cost, calc_cost_list, flatten_to_matrix_idx, matrix_to_flatten_idx
-from src.map_solver.greedy_solver import greedy_assigner
-from src.map_solver.local_greedy_solver import local_greedy_assigner
 
 
 def init_standard_solution(group_len_list):
@@ -92,13 +90,6 @@ def vlsns_solve(sub_graph, graph_params, debug=False):
         init_solution = init_standard_solution(group_len_list)
     if init_mode == 'ssr':
         init_solution = init_random_solution(group_len_list)
-    if init_mode == 'ssg':
-        # cost_list, cost_time = calc_cost_list(sub_graph, graph_params, group_node_list, group_len_list,
-        #                                       combination_size, greedy=True)
-        # assigned_idx_list, _ = greedy_assigner(group_node_list, group_len_list, cost_list.copy())
-        # init_solution = init_greedy_solution(assigned_idx_list, group_len_list)
-        assignments, _ = local_greedy_assigner(sub_graph)
-        init_solution = init_local_greedy_solution(assignments, group_node_list)
     if init_mode == 'msr':
         init_solution = init_random_solutions(group_len_list, init_num)
     if init_mode == 'msg':
@@ -128,26 +119,10 @@ def vlsns_solve(sub_graph, graph_params, debug=False):
     refine_time = time.time()
 
     assignment_nodes = solution_to_assignment(solution, sub_graph, group_node_list)
-    # from src.tools import graph_viewer
-    # mzs = nx.get_node_attributes(sub_graph, 'mz').values()
-    # rts = nx.get_node_attributes(sub_graph, 'rt').values()
-    # # target_mz = 363.1456
-    # # target_rt = 4.27
-    # target_mz = 114.1272
-    # target_rt = 12.597
-    # target_mz = 109.0754
-    # target_rt = 4.5919
-    # match = min(mzs) < target_mz < max(mzs) and min(rts) < target_rt < max(rts)
-    # if match:
-    # # if not (solution == init_solution).min():
-    #     init_assignment_nodes = solution_to_assignment(init_solution, sub_graph, group_node_list)
-    #     graph_viewer.plt_assignment(sub_graph, init_assignment_nodes, save=False)
-    #     graph_viewer.plt_assignment(sub_graph, assignment_nodes, save=False)
-    #     print('debug')
 
-    refine_time = time.time() - refine_time
-    if debug:
-        print(len(sub_graph), pre_time, cost_time, assign_time, refine_time)
+    # refine_time = time.time() - refine_time
+    # if debug:
+    #     print(len(sub_graph), pre_time, cost_time, assign_time, refine_time)
     return assignment_nodes
 
 

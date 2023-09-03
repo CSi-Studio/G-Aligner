@@ -66,25 +66,11 @@ class Graph:
                     if (right_data[right_iter_idx][1] < rt_start) \
                             or (right_data[right_iter_idx][1] > rt_end):
                         continue
-                    # dist = mz_factor * abs(left_data[left_idx][0] - right_data[right_iter_idx][0]) / tmp_mz_tolerance + \
-                    #     rt_factor * abs(left_data[left_idx][1] - right_data[right_iter_idx][1]) / rt_tolerance + \
-                    #     area_factor * (1 - min(left_data[left_idx][2], right_data[right_iter_idx][2]) /
-                    #                    (max(left_data[left_idx][2], right_data[right_iter_idx][2]) + 1E-6))
-                    # dist /= mz_factor + rt_factor + area_factor
                     dist = mz_factor * abs(left_data[left_idx][0] - right_data[right_iter_idx][0]) / tmp_mz_tolerance + \
                         rt_factor * abs(left_data[left_idx][1] - right_data[right_iter_idx][1]) / rt_tolerance
                     dist /= mz_factor + rt_factor
                     edges.append([left_start_idx + left_idx, right_start_idx + right_iter_idx, dist])
             edges = np.array(edges)
-            # filtered_edges = np.array([False] * len(edges))
-            # for left_idx in set(edges[:, 0]):
-            #     edge_idx = edges[:, 0] == left_idx
-            #     min_dist = np.min(edges[edge_idx][:, 2])
-            #     filtered_edges[edge_idx * ((edges[:, 2] < 2 * min_dist) + (edges[:, 2] < min_dist + 0.2))] = True
-            # for right_idx in set(edges[:, 1]):
-            #     edge_idx = edges[:, 1] == right_idx
-            #     min_dist = np.min(edges[edge_idx][:, 2])
-            #     filtered_edges[edge_idx * ((edges[:, 2] < 2 * min_dist) + (edges[:, 2] < min_dist + 0.2))] = True
 
             # for edge in edges[filtered_edges]:
             for edge in edges:
@@ -94,10 +80,6 @@ class Graph:
             for j in range(i + 1, len(data_list)):
                 left_data = data_list[i]
                 right_data = data_list[j]
-                # build_edges(g, left_data, right_data, start_idxes[i], start_idxes[j], self.mz_tolerance, self.use_ppm,
-                #             self.rt_tolerance / 2, self.mz_factor, self.rt_factor, self.area_factor, pow(2, -3))
-                # build_edges(g, left_data, right_data, start_idxes[i], start_idxes[j], self.mz_tolerance, self.use_ppm,
-                #             self.rt_tolerance, self.mz_factor, self.rt_factor, self.area_factor, pow(2, -2))
                 # build_edges(g, left_data, right_data, start_idxes[i], start_idxes[j], self.mz_tolerance, self.use_ppm,
                 #             self.rt_tolerance / 2, self.mz_factor, self.rt_factor, self.area_factor, pow(2, -1))
                 build_edges(g, left_data, right_data, start_idxes[i], start_idxes[j], self.mz_tolerance, self.use_ppm,

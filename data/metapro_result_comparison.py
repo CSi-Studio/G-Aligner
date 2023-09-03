@@ -13,6 +13,14 @@ wiff_sample_names = ['SampleA_1', 'SampleA_2', 'SampleA_3', 'SampleA_4',
 
 raw_lib_path = root_path + '/QE_HF/QE_HF_annotated.xlsx'
 raw_sample_names = ['SA1', 'SA2', 'SA3', 'SA4', 'SA5', 'SB1', 'SB2', 'SB3', 'SB4', 'SB5']
+
+mtbls_lib_path = os.path.join(root_path, 'MTBLS562', 'MTBLS562_annotated.xlsx')
+mtbls_sample_names = ['12W-1', '12W-2', '12W-3', '12W-4', '12W-5', '12W-6', '12W-7', '12W-8',
+                      '24W-1', '24W-2', '24W-3', '24W-4', '24W-5', '24W-6', '24W-7', '24W-8',
+                      '32W-1', '32W-2', '32W-3', '32W-4', '32W-5', '32W-6', '32W-7', '32W-8',
+                      '4W-1', '4W-2', '4W-3', '4W-4', '4W-5', '4W-6', '4W-7', '4W-8',
+                      '52W-1', '52W-2', '52W-3', '52W-4', '52W-5', '52W-6', '52W-7', '52W-8']
+
 raw_result_path = []
 
 
@@ -27,6 +35,24 @@ def load_lib(lib_path, sample_names):
         lib_matrix.append(np.vstack([mzs, rts]).transpose())
     lib_matrix = np.array(lib_matrix)
     sorted_idx = np.argsort(np.mean(lib_matrix[:, :, 0], axis=0))
+    lib_matrix = lib_matrix[:, sorted_idx, :]
+    return lib_matrix
+
+def load_lib_dev(lib_path, sample_names):
+    warnings.simplefilter('ignore')
+    data = pd.read_excel(lib_path)
+    ana_idx = data['Type'] == 'ANALYTES'
+    lib_matrix = []
+    lib_mzs = np.array(data['m/z'][ana_idx])
+    lib_rts = np.array(data['RT'][ana_idx])
+    for i, sample in enumerate(sample_names):
+        mzs = np.array(data[sample + '_Mz'][ana_idx])
+        rts = np.array(data[sample + '_Rt'][ana_idx])
+        mz_devs = np.array(data[sample + '_Mz'][ana_idx]) - lib_mzs
+        rt_devs = np.array(data[sample + '_Rt'][ana_idx]) - lib_rts
+        lib_matrix.append(np.vstack([mzs, rts, mz_devs, rt_devs]).transpose())
+    lib_matrix = np.array(lib_matrix)
+    sorted_idx = np.argsort(lib_mzs)
     lib_matrix = lib_matrix[:, sorted_idx, :]
     return lib_matrix
 
@@ -272,34 +298,55 @@ if __name__ == '__main__':
                                                 '*' + name + '*'))[0] for name in wiff_sample_names]
     raw_result_paths = [glob.glob(os.path.join(result_root_path, 'QE_HF', 'metapro',
                                                '*' + name + '*'))[0] for name in raw_sample_names]
+    mtbls_result_paths = [glob.glob(os.path.join(result_root_path, 'MTBLS562', 'metapro',
+                                               name + '*'))[0] for name in mtbls_sample_names]
 
     wiff_lib_matrix = load_lib(wiff_lib_path, wiff_sample_names)
     raw_lib_matrix = load_lib(raw_lib_path, raw_sample_names)
+    mtbls_lib_matrix = load_lib(mtbls_lib_path, mtbls_sample_names)
+    mtbls_lib_matrix_dev = load_lib_dev(mtbls_lib_path, mtbls_sample_names)
+
     wiff_result_matrix = load_results(wiff_result_paths, separator=',', skip_line=0, rt_col_idx=1, mz_col_idx=0, area_col_idx=2)
     raw_result_matrix = load_results(raw_result_paths, separator=',', skip_line=0, rt_col_idx=1, mz_col_idx=0, area_col_idx=2)
+    mtbls_result_matrix = load_results(mtbls_result_paths, separator=',', skip_line=0, rt_col_idx=1, mz_col_idx=0, area_col_idx=2)
 
-    print('wiff')
-    aligned_paths = [os.path.join(path, 'aligned_result.csv') for path in glob.glob(os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', '[0-9]*'))]
-    aligned_paths += [os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', 'TripleTOF_6600_aligned_mzmine2_ransac.csv')]
-    aligned_paths += [os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', 'TripleTOF_6600_aligned_openms.csv')]
-    aligned_paths += [os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', 'TripleTOF_6600_group_aligned_xcms.csv')]
-    aligned_paths += [os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', 'TripleTOF_6600_obiwarp_aligned_xcms.csv')]
+    # print('wiff')
+    # aligned_paths = [os.path.join(path, 'aligned_result.csv') for path in glob.glob(os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', '[0-9]*'))]
+    # aligned_paths += [os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', 'TripleTOF_6600_aligned_mzmine2_ransac.csv')]
+    # aligned_paths += [os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', 'TripleTOF_6600_aligned_openms.csv')]
+    # aligned_paths += [os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', 'TripleTOF_6600_group_aligned_xcms.csv')]
+    # aligned_paths += [os.path.join(result_root_path, 'TripleTOF_6600_results_metapro', 'TripleTOF_6600_obiwarp_aligned_xcms.csv')]
+    #
+    # for aligned_result_path in aligned_paths:
+    #     print(aligned_result_path)
+    #     aligned_matrix = load_aligned_result(aligned_result_path)
+    #     eval_galigner(wiff_lib_matrix, wiff_result_matrix, aligned_matrix)
+    #
+    #
+    # print('raw')
+    # aligned_paths = [os.path.join(path, 'aligned_result.csv') for path in glob.glob(os.path.join(result_root_path,
+    #                                                                                              'QE_HF_results_metapro', '[0-9]*'))]
+    # aligned_paths += [os.path.join(result_root_path, 'QE_HF_results_metapro', 'QE_HF_aligned_mzmine2_ransac.csv')]
+    # aligned_paths += [os.path.join(result_root_path, 'QE_HF_results_metapro', 'QE_HF_aligned_openms.csv')]
+    # aligned_paths += [os.path.join(result_root_path, 'QE_HF_results_metapro', 'QE_HF_group_aligned_xcms.csv')]
+    # aligned_paths += [os.path.join(result_root_path, 'QE_HF_results_metapro', 'QE_HF_obiwarp_aligned_xcms.csv')]
+    #
+    # for aligned_result_path in aligned_paths:
+    #     print(aligned_result_path)
+    #     aligned_matrix = load_aligned_result(aligned_result_path)
+    #     eval_galigner(raw_lib_matrix, raw_result_matrix, aligned_matrix)
 
-    for aligned_result_path in aligned_paths:
-        print(aligned_result_path)
-        aligned_matrix = load_aligned_result(aligned_result_path)
-        eval_galigner(wiff_lib_matrix, wiff_result_matrix, aligned_matrix)
-
-
-    print('raw')
+    print('mtbls')
     aligned_paths = [os.path.join(path, 'aligned_result.csv') for path in glob.glob(os.path.join(result_root_path,
-                                                                                                 'QE_HF_results_metapro', '[0-9]*'))]
-    aligned_paths += [os.path.join(result_root_path, 'QE_HF_results_metapro', 'QE_HF_aligned_mzmine2_ransac.csv')]
-    aligned_paths += [os.path.join(result_root_path, 'QE_HF_results_metapro', 'QE_HF_aligned_openms.csv')]
-    aligned_paths += [os.path.join(result_root_path, 'QE_HF_results_metapro', 'QE_HF_group_aligned_xcms.csv')]
-    aligned_paths += [os.path.join(result_root_path, 'QE_HF_results_metapro', 'QE_HF_obiwarp_aligned_xcms.csv')]
+                                                                                                 'MTBLS562_results_metapro', '[0-9]*'))]
+    aligned_paths += [os.path.join(result_root_path, 'MTBLS562_results_metapro', 'MTBLS562_aligned_mzmine2_join.csv')]
+    aligned_paths += [os.path.join(result_root_path, 'MTBLS562_results_metapro', 'MTBLS562_aligned_mzmine2_ransac.csv')]
+    aligned_paths += [os.path.join(result_root_path, 'MTBLS562_results_metapro', 'MTBLS562_aligned_openms.csv')]
+    aligned_paths += [os.path.join(result_root_path, 'MTBLS562_results_metapro', 'MTBLS562_group_aligned_xcms.csv')]
+    aligned_paths += [os.path.join(result_root_path, 'MTBLS562_results_metapro', 'MTBLS562_obiwarp_aligned_xcms.csv')]
 
     for aligned_result_path in aligned_paths:
         print(aligned_result_path)
         aligned_matrix = load_aligned_result(aligned_result_path)
-        eval_galigner(raw_lib_matrix, raw_result_matrix, aligned_matrix)
+        eval_galigner(mtbls_lib_matrix, mtbls_result_matrix, aligned_matrix)
+

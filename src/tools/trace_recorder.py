@@ -6,8 +6,10 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 
 def save_params(save_folder, result_file_params, raw_file_params, coarse_registration_params, fine_assignment_params):
-
-    path = os.path.join(root_dir, 'experiments', 'results', save_folder)
+    result_root_path = os.path.join(root_dir, 'experiments')
+    if not os.path.exists(result_root_path):
+        os.mkdir(result_root_path)
+    path = os.path.join(result_root_path, save_folder)
     if not os.path.exists(path):
         os.mkdir(path)
     file = open(os.path.join(path, 'params.txt'), 'w')

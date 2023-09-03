@@ -13,8 +13,13 @@ wiff_sample_names = ['SampleA_1', 'SampleA_2', 'SampleA_3', 'SampleA_4',
 
 raw_lib_path = os.path.join(root_path, 'QE_HF', 'QE_HF_annotated.xlsx')
 raw_sample_names = ['SA1', 'SA2', 'SA3', 'SA4', 'SA5', 'SB1', 'SB2', 'SB3', 'SB4', 'SB5']
-raw_result_path = []
 
+mtbls_lib_path = os.path.join(root_path, 'MTBLS562', 'MTBLS562_annotated.xlsx')
+mtbls_sample_names = ['12W-1', '12W-2', '12W-3', '12W-4', '12W-5', '12W-6', '12W-7', '12W-8',
+                      '24W-1', '24W-2', '24W-3', '24W-4', '24W-5', '24W-6', '24W-7', '24W-8',
+                      '32W-1', '32W-2', '32W-3', '32W-4', '32W-5', '32W-6', '32W-7', '32W-8',
+                      '4W-1', '4W-2', '4W-3', '4W-4', '4W-5', '4W-6', '4W-7', '4W-8',
+                      '52W-1', '52W-2', '52W-3', '52W-4', '52W-5', '52W-6', '52W-7', '52W-8']
 
 def load_lib(lib_path, sample_names):
     warnings.simplefilter('ignore')
@@ -237,14 +242,6 @@ def eval_galigner(lib_matrix, result_matrix, aligned_matrix, align_area_idxes, m
     # align_area_idxes = [6 + 3 * i for i in range(len(lib_matrix))]
     need_assign_list = aligned_matrix[:, 3] == 1
     aligned_area = aligned_matrix[:, align_area_idxes]
-    result_num = np.sum([len(result) for result in result_matrix])
-    feature_num = np.sum(aligned_area != 0)
-    miss_num = len(aligned_matrix) * len(lib_matrix) - feature_num
-    # print("Results:", len(aligned_matrix), result_num, feature_num, miss_num,
-    #       feature_num / result_num, feature_num / (feature_num + miss_num))
-    # print(np.mean(np.sum(aligned_area != 0, axis=-1)),
-    #       np.sum(np.sum(aligned_area != 0, axis=-1) == len(lib_matrix)),
-    #       np.sum(np.sum(aligned_area != 0, axis=-1) == len(lib_matrix)) / len(aligned_matrix))
     lib_match_matrix, mz_error_matrix, rt_error_matrix = match_result_to_lib(lib_matrix, result_matrix, mz_tolerance=mz_tolerance, use_ppm=False, rt_tolerance=rt_tolerance)
     align_match_matrix = match_aligned_area_to_result(aligned_matrix, result_matrix, align_area_idxes, mz_tolerance=0.01, use_ppm=False, rt_tolerance=1)
     eval_result = eval_alignment_performance(lib_match_matrix, align_match_matrix, need_assign_list)
@@ -276,6 +273,7 @@ if __name__ == '__main__':
     result_root_path = os.getcwd()
     wiff_lib_matrix = load_lib(wiff_lib_path, wiff_sample_names)
     raw_lib_matrix = load_lib(raw_lib_path, raw_sample_names)
+    mtbls_lib_matrix = load_lib(mtbls_lib_path, mtbls_sample_names)
 
     def eval_mzmine2_wiff(wiff_lib_matrix):
         print('MZmine2 wiff')
@@ -316,6 +314,26 @@ if __name__ == '__main__':
             list(range(2, 2 + 3 * len(raw_lib_matrix))))
         aligned_area_idxes = [4 + 3 * i for i in range(len(raw_lib_matrix))]
         eval_galigner(raw_lib_matrix, raw_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.005, rt_tolerance=0.1)
+
+    def eval_mzmine2_mtbls(mtbls_lib_matrix):
+        print('MZmine2 mtbls')
+        mtbls_result_paths = [glob.glob(os.path.join(result_root_path, 'MTBLS562', 'mzmine2',
+                                                   name + '*'))[0] for name in mtbls_sample_names]
+        mtbls_result_matrix = load_results(mtbls_result_paths, separator=',', skip_line=1, rt_col_idx=1, mz_col_idx=0, area_col_idx=2)
+
+        aligned_paths = [os.path.join(path, 'aligned_result.csv') for path in glob.glob(os.path.join(result_root_path, 'MTBLS562_results_mzmine2', '[0-9]*'))]
+
+        for aligned_result_path in aligned_paths:
+            print(aligned_result_path)
+            aligned_matrix = load_aligned_result(aligned_result_path)
+            aligned_area_idxes = [6 + 3 * i for i in range(len(mtbls_lib_matrix))]
+            eval_galigner(mtbls_lib_matrix, mtbls_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.015, rt_tolerance=0.1)
+
+        aligned_matrix = load_third_party_aligned_result(
+            os.path.join(result_root_path, 'MTBLS562_results_mzmine2', 'mzmine2_aligned.csv'),
+            list(range(2, 2 + 3 * len(mtbls_lib_matrix))))
+        aligned_area_idxes = [4 + 3 * i for i in range(len(mtbls_lib_matrix))]
+        eval_galigner(mtbls_lib_matrix, mtbls_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.015, rt_tolerance=0.1)
 
     def eval_xcms_wiff(wiff_lib_matrix):
         print('XCMS wiff')
@@ -366,6 +384,32 @@ if __name__ == '__main__':
         aligned_area_idxes = list(range(2, 12))
         eval_galigner(raw_lib_matrix, raw_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.005, rt_tolerance=1)
 
+    def eval_xcms_mtbls(mtbls_lib_matrix):
+        print('XCMS mtbls')
+        mtbls_result_paths = [glob.glob(os.path.join(result_root_path, 'MTBLS562', 'xcms',
+                                                     name + '*'))[0] for name in mtbls_sample_names]
+        mtbls_result_matrix = load_results(mtbls_result_paths, separator=',', skip_line=1, rt_col_idx=3, mz_col_idx=0, area_col_idx=6)
+        aligned_paths = [os.path.join(path, 'aligned_result.csv') for path in glob.glob(os.path.join(result_root_path, 'MTBLS562_results_xcms', '[0-9]*'))]
+
+        for aligned_result_path in aligned_paths:
+            print(aligned_result_path)
+            aligned_matrix = load_aligned_result(aligned_result_path)
+            aligned_area_idxes = [6 + 3 * i for i in range(len(mtbls_lib_matrix))]
+            eval_galigner(mtbls_lib_matrix, mtbls_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.015, rt_tolerance=0.1)
+
+        aligned_matrix = load_third_party_aligned_result(
+            os.path.join(result_root_path, 'MTBLS562_results_xcms', 'group_aligned_xcms.csv'),
+            [6 + 3 * i for i in range(len(mtbls_lib_matrix))], rt_col_idx=1)
+        aligned_area_idxes = list(range(2, 42))
+        eval_galigner(mtbls_lib_matrix, mtbls_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.015, rt_tolerance=0.1)
+        aligned_matrix = load_third_party_aligned_result(
+            os.path.join(result_root_path, 'MTBLS562_results_xcms', 'obiwarp_aligned_xcms.csv'),
+            [6 + 3 * i for i in range(len(mtbls_lib_matrix))], rt_col_idx=1)
+        aligned_area_idxes = list(range(2, 42))
+        eval_galigner(mtbls_lib_matrix, mtbls_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.015, rt_tolerance=0.1)
+
+
+
     def eval_openms_wiff(wiff_lib_matrix):
         print('OpenMS wiff')
         wiff_result_paths = [glob.glob(os.path.join(result_root_path, 'TripleTOF_6600', 'openms',
@@ -406,9 +450,32 @@ if __name__ == '__main__':
         aligned_area_idxes = list(range(2, 12))
         eval_galigner(raw_lib_matrix, raw_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.005, rt_tolerance=0.1)
 
+    def eval_openms_mtbls(mtbls_lib_matrix):
+        print('OpenMS mtbls')
+        mtbls_result_paths = [glob.glob(os.path.join(result_root_path, 'MTBLS562', 'openms',
+                                                   name + '*'))[0] for name in mtbls_sample_names]
+        mtbls_result_matrix = load_results(mtbls_result_paths, separator=',', skip_line=0, rt_col_idx=1, mz_col_idx=0, area_col_idx=2)
+
+        aligned_paths = [os.path.join(path, 'aligned_result.csv') for path in glob.glob(os.path.join(result_root_path, 'MTBLS562_results_openms', '[0-9]*'))]
+
+        for aligned_result_path in aligned_paths:
+            print(aligned_result_path)
+            aligned_matrix = load_aligned_result(aligned_result_path)
+            aligned_area_idxes = [6 + 3 * i for i in range(len(mtbls_lib_matrix))]
+            eval_galigner(mtbls_lib_matrix, mtbls_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.015, rt_tolerance=0.1)
+
+        aligned_matrix = load_third_party_aligned_result(
+            os.path.join(result_root_path, 'MTBLS562_results_openms', 'openms_aligned.csv'),
+            [6 + 3 * i for i in range(len(mtbls_lib_matrix))])
+        aligned_area_idxes = list(range(2, 2 + len(mtbls_sample_names)))
+        eval_galigner(mtbls_lib_matrix, mtbls_result_matrix, aligned_matrix, aligned_area_idxes, mz_tolerance=0.015, rt_tolerance=0.1)
+
     eval_mzmine2_wiff(wiff_lib_matrix)
     eval_mzmine2_raw(raw_lib_matrix)
     eval_xcms_wiff(wiff_lib_matrix)
     eval_xcms_raw(raw_lib_matrix)
     eval_openms_wiff(wiff_lib_matrix)
     eval_openms_raw(raw_lib_matrix)
+    eval_mzmine2_mtbls(mtbls_lib_matrix)
+    eval_openms_mtbls(mtbls_lib_matrix)
+    eval_xcms_mtbls(mtbls_lib_matrix)
