@@ -6,14 +6,14 @@
 - **Accuracy:** G-Aligner achieved the best performance in comparison with popular feature alignment methods in MZmine2, OpenMS and XCMS on two public metabolomics benchmark datasets.
 - **Reliability:** G-Aligner achieved the best performance on manually annotated feature lists and untargeted extracted features of MZmine2, OpenMS and XCMS, and helped all compared software obtaining more accurate result by integrating G-Aligner into their workflow.
 - **Open source:** We open-sourced G-Aligner under a permissive license to promote the accuracy of MS data analysis more broadly.
-- **Dataset:** We manually annotated a feature dataset for both public benchmark datasets, which contains m/z, RT, area information of library analytes and can be used in evaluations of feature detection, quantification and alignment accuracy.
+- **Dataset:** We manually annotated a feature dataset for three public benchmark datasets, which contains m/z, RT, area information of library analytes and can be used in evaluations of feature detection, quantification and alignment accuracy.
 
 ## Datasets
 Raw MS files of the metabolomics datasets can be downloaded at [Google Drive](https://drive.google.com/drive/folders/1PRDIvihGFgkmErp2fWe41UR2Qs2VY_5G).
 
-The mzML files of the metabolomics datasets can be downloaded at [Zenodo](https://doi.org/10.5281/zenodo.7995789).
+The mzML files of the metabolomics datasets can be downloaded at [Zenodo](https://doi.org/10.5281/zenodo.8313034).
 
-Targeted annotation results, evaluation results and evaluation methods can be downloaded at [Zenodo](https://doi.org/10.5281/zenodo.7995789).
+Targeted annotation results, evaluation results and evaluation methods can be downloaded at [Zenodo](https://doi.org/10.5281/zenodo.8313034).
 
 
 ## Setup
