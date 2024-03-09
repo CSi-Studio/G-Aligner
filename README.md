@@ -21,6 +21,10 @@ Targeted annotation results, evaluation results and evaluation methods can be do
    
 2. Install the dependencies. Here we use ROOT_PATH to represent the root path of G-Aligner.
     
+    ```cd ROOT_PATH\third_party\```
+
+    ```python setup.py install```
+   
     ```cd ROOT_PATH```
    
     ```pip install -r requirements.txt```
@@ -87,7 +91,17 @@ Feature alignment results are saved in ```experiment``` folder.
 
 Cite our paper at:
 ```
-@article{}
+@article{wang2023,
+  title={G-Aligner: a graph-based feature alignment method for untargeted LC--MS-based metabolomics},
+  author={Wang, Ruimin and Lu, Miaoshan and An, Shaowei and Wang, Jinyin and Yu, Changbin},
+  journal={BMC bioinformatics},
+  volume={24},
+  number={1},
+  pages={431},
+  year={2023},
+  publisher={Springer},
+  doi={10.1186/s12859-023-05525-4}
+}
 ```
 
 ## License
